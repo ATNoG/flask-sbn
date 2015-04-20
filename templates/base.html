@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>{% block title %}{% endblock %}</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<!-- Bootstrap -->
+		<!-- Latest compiled and minified CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+
+		<!-- Optional theme -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap-theme.min.css">
+	</head>
+	<body>
+		<div class="container-fluid">
+			<h1><a href="{{url_for('.root')}}">SBN</a> <small>demo</small></h1>
+
+			{% block content %}
+			{% endblock %}
+
+			{% if 'SBN_ENABLED' in request.environ %}
+			<br/><br/>
+			<div class="panel panel-info">
+				<div class="panel-heading">SBN Debug Panel</div>
+				<div class="panel-body">
+					<ul>
+						<li><b>Host</b>: {{request.environ.get('SBN_HTTP_HOST', '')}}</li>
+						<li><b>Path</b>: {{request.environ.get('SBN_PATH_INFO', '')}}</li>
+						<li><b>Query</b>: {{request.environ.get('SBN_QUERY_STRING', '')}}</li>
+					</ul>
+					<ul>
+						<li><b>Host</b>: {{request.environ.get('HTTP_HOST', '')}}</li>
+						<li><b>Path</b>: {{request.environ.get('PATH_INFO', '')}}</li>
+						<li><b>Query</b>: {{request.environ.get('QUERY_STRING', '')}}</li>
+					</ul>
+				</div>
+			</div>
+			{% endif %}
+		</div>
+
+
+		<script src="http://code.jquery.com/jquery.js"></script>
+		<!-- Latest compiled and minified JavaScript -->
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
+	</body>
+</html>
+
+
+
