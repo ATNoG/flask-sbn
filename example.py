@@ -11,6 +11,7 @@ SBN = SBNMiddleware(app.wsgi_app, key, app.logger, domainsuffix='.sbndomain.tk')
 app.wsgi_app = SBN
 
 # Replace default  url_for function with SBN.url_for
+app.jinja_env.globals['nosbn_url_for'] = SBN.nosbn_url_for
 app.jinja_env.globals['url_for'] = SBN.url_for
 url_for = SBN.url_for
 

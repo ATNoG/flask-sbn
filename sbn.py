@@ -117,6 +117,11 @@ class SBNMiddleware(object):
 
         return self.wsgiapp(environ, start_response)
 
+    def nosbn_url_for(self, endpoint, **values):
+        values['_external'] = True
+        url = flask_url_for(endpoint, **values)
+        return url
+
     def url_for(self, endpoint, **values):
         """SBN wrapper around flask.url_for """
         values['_external'] = True
