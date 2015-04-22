@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 	<p>In a nutshell, press the button to start an SBN, you will be redirected to the new URL.</p>
-	<a class="btn btn-success" type="submit" href="{{url_for('.start')}}">Start Session</a> or
-	<a class="btn btn-default" type="submit" href="{{url_for('start_path')}}">Start Session(Path Only)</a>
+	<a class="btn btn-success" type="submit" href="{{url_for('.start')}}">Start Session</a> {#or
+	<a class="btn btn-default" type="submit" href="{{url_for('start_path')}}">Start Session(Path Only)</a>#}
 {% endblock %}
