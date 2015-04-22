@@ -27,6 +27,7 @@
 						<li><b>Path</b>: {{request.environ.get('SBN_PATH_INFO', '')}}</li>
 						<li><b>Query</b>: {{request.environ.get('SBN_QUERY_STRING', '')}}</li>
 					</ul>
+					<p>was decoded as <a href="{{request.url}}">{{request.url}}</a></p>
 					<ul>
 						<li><b>Host</b>: {{request.environ.get('HTTP_HOST', '')}}</li>
 						<li><b>Path</b>: {{request.environ.get('PATH_INFO', '')}}</li>
