@@ -8,6 +8,7 @@ from base64 import urlsafe_b64decode as b64decode
 from base64 import b32decode, b32encode
 from urllib.parse import urlsplit, urlunsplit
 import uuid
+import binascii
 
 #TODO: Rewrite Referer
 # TODO: caching
@@ -78,7 +79,7 @@ class SBNMiddleware(object):
         labels = path.split('/')
         return b'/'.join([self.encrypt_pathlabel(label.encode('utf8')) for label in labels])
 
-    def __call__(self, environ, start_response):
+    def process_req(self, environ):
         # Host: this implementation works with host suffixes
         host = environ['HTTP_HOST']
         if self.domainsuffix and host.endswith(self.domainsuffix):
@@ -115,6 +116,14 @@ class SBNMiddleware(object):
             environ['SBN_QUERY_STRING'] = query
             environ['QUERY_STRING'] = self.decrypt_query(query[len(self.queryparam):]).decode('utf8')
 
+    def __call__(self, environ, start_response):
+        try:
+            err = self.process_req(environ)
+            if err:
+                return err
+        except binascii.Error:
+            e = BadRequest()
+            return e(environ, start_response)
         return self.wsgiapp(environ, start_response)
 
     def nosbn_url_for(self, endpoint, **values):
