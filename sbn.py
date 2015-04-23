@@ -49,7 +49,8 @@ class SBNMiddleware(object):
 
     def encrypt_host(self, host):
         data = self.encrypt(host)
-        data = b32encode(data).strip(b'=') 
+        extra = uuid.uuid4().bytes
+        data = b32encode(extra + data).strip(b'=')
         data = b'.'.join(chunks(data, 63))
         return data + self.domainsuffix.encode('utf8')
     def decrypt_host(self, host):
@@ -57,6 +58,9 @@ class SBNMiddleware(object):
         data = data.replace(b'.', b'')
         data = pad_data(data)
         data = b32decode(data.upper())
+        if len(data) < 16:
+            raise Exception('Expecting at least 16 random bytes in host payload')
+        data = data[16:]
         return self.decrypt(data)
 
     def decrypt_pathlabel(self, label):
