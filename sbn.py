@@ -93,8 +93,7 @@ class SBNMiddleware(object):
                 environ['HTTP_HOST'] = self.decrypt_host(host.encode('ascii')).decode('ascii')
             except Exception as e:
                 self.logger.exception(e)
-                e = BadRequest()
-                return e(environ, start_response)
+                return BadRequest()
 
         # Path
         if '/'+self.pathmarker.decode('utf8') in environ['PATH_INFO']:
