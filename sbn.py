@@ -123,22 +123,28 @@ class SBNMiddleware(object):
         try:
             err = self.process_req(environ)
             if err:
-                return err
+                return err(environ, start_response)
         except binascii.Error:
             e = BadRequest()
             return e(environ, start_response)
         return self.wsgiapp(environ, start_response)
 
+    def url_for(self, endpoint, **values):
+        if 'SBN_ENABLED' in request.environ:
+            return self.sbn_url_for(endpoint, **values)
+        else:
+            return self.nosbn_url_for(endpoint, **values)
+
+    # These two are escape hatches for when you WANT to
+    # override the default behaviour
     def nosbn_url_for(self, endpoint, **values):
         values['_external'] = True
         url = flask_url_for(endpoint, **values)
         return url
-
-    def url_for(self, endpoint, **values):
+    def sbn_url_for(self, endpoint, **values):
         """SBN wrapper around flask.url_for """
         values['_external'] = True
         url = flask_url_for(endpoint, **values)
-
 
         # FIXME: from the python docs this would urlp[4] but it is not
         urlp = list(urlsplit(url))
@@ -151,7 +157,7 @@ class SBNMiddleware(object):
         else:
             urlp[1] = self.encrypt_host(urlp[1].encode('utf8')).decode('utf8').lower()
 
-        new_url = urlunsplit(urlp)
-        return new_url
+        url = urlunsplit(urlp)
+        return url
 
 

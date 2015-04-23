@@ -25,7 +25,7 @@ def root():
 
 @app.route('/start')
 def start():
-    return redirect(url_for('.hello', action=42))
+    return redirect(SBN.sbn_url_for('.hello', action=42))
 
 @app.route('/startpath')
 def start_path():
