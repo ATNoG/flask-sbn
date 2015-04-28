@@ -34,13 +34,18 @@ def pad_data(data, multiple=8):
 CURVE = 'secp256r1/nistp256'
 class SBNMiddleware(object):
 
-    def __init__(self, wsgiapp, key, logger, domainsuffix=''):
-        self.wsgiapp = wsgiapp
+    def __init__(self, app, key, logger, domainsuffix=''):
+        self.wsgiapp = app.wsgi_app
+        app.wsgi_app = self
         self.key = key
         self.logger = logger
         self.pathmarker = b'@'
         self.queryparam = b'sbnq='
         self.domainsuffix=domainsuffix
+
+        # Replace default  url_for function with SBN.url_for
+        app.jinja_env.globals['nosbn_url_for'] = self.nosbn_url_for
+        app.jinja_env.globals['url_for'] = self.url_for
 
     def decrypt(self, ciphertext):
         return seccure.decrypt(ciphertext, self.key, CURVE)
