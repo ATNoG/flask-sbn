@@ -13,7 +13,6 @@ import binascii
 #TODO: Rewrite Referer
 # TODO: caching
 
-
 def chunks(l, chunksize):
     result = []
     for i in range(len(l)):
@@ -43,46 +42,113 @@ class SBNMiddleware(object):
         self.queryparam = b'sbnq='
         self.domainsuffix=domainsuffix
 
+        self.decrypt_cache = {}
+        self.encrypt_cache = {}
+
         # Replace default  url_for function with SBN.url_for
         app.jinja_env.globals['nosbn_url_for'] = self.nosbn_url_for
         app.jinja_env.globals['url_for'] = self.url_for
 
+        self._process_stat_keys = [
+                'miss_encrypt_host', 'miss_decrypt_host',
+                'hit_encrypt_host', 'hit_decrypt_host',
+                'miss_encrypt_pathlabel', 'miss_decrypt_pathlabel',
+                'hit_encrypt_pathlabel', 'hit_decrypt_pathlabel',
+                'miss_encrypt_query', 'hit_encrypt_query',
+                'miss_decrypt_query', 'hit_decrypt_query',
+                ]
+        self.reset_process_stats()
+
+    def reset_process_stats(self):
+        self._process_stats = {}
+        for k in self._process_stat_keys:
+            self._process_stats[k] = 0
+    def stats(self):
+        return self._process_stats
+
     def decrypt(self, ciphertext):
-        return seccure.decrypt(ciphertext, self.key, CURVE)
-    def encrypt(self, data):
-        return seccure.passphrase_to_pubkey(self.key, CURVE).encrypt(data)
+        plain = seccure.decrypt(ciphertext, self.key, CURVE)
+        self.decrypt_cache[ciphertext] = plain
+        self.encrypt_cache[plain] = ciphertext
+        return plain
+    def encrypt(self, plain):
+
+        ciphertext = seccure.passphrase_to_pubkey(self.key, CURVE).encrypt(plain)
+        self.encrypt_cache[plain] = ciphertext
+        return ciphertext
 
     def encrypt_host(self, host):
-        data = self.encrypt(host)
+
         extra = uuid.uuid4().bytes
-        data = b32encode(extra + data).strip(b'=')
+        plain = extra+host
+        # Stats/cache
+        if plain in self.encrypt_cache:
+            self._process_stats['hit_encrypt_host'] += 1
+            data = self.encrypt_cache[plain]
+        else:
+            data = self.encrypt(plain)
+            self._process_stats['miss_encrypt_host'] += 1
+
+        data = b32encode(data).strip(b'=')
         data = b'.'.join(chunks(data, 63))
         return data + self.domainsuffix.encode('utf8')
     def decrypt_host(self, host):
         data = host.split(self.domainsuffix.encode('utf8'))[0]
         data = data.replace(b'.', b'')
         data = pad_data(data)
-        data = b32decode(data.upper())
-        if len(data) < 16:
-            raise Exception('Expecting at least 16 random bytes in host payload')
-        data = data[16:]
-        return self.decrypt(data)
+        ciphertext = b32decode(data.upper())
+
+        # Stats/cache
+        if ciphertext in self.decrypt_cache:
+            self._process_stats['hit_decrypt_host'] += 1
+            plain = self.decrypt_cache[ciphertext]
+        else:
+            self._process_stats['miss_decrypt_host'] += 1
+            plain = self.decrypt(ciphertext)
+            if len(plain) < 16:
+                raise Exception('Expecting at least 16 random bytes in host payload')
+        return plain[16:]
 
     def decrypt_pathlabel(self, label):
-        return self.decrypt(b64decode(label))
+        ciphertext = b64decode(label)
+        if ciphertext in self.decrypt_cache:
+            self._process_stats['hit_decrypt_pathlabel'] += 1
+            return self.decrypt_cache[ciphertext]
 
+        self._process_stats['miss_decrypt_pathlabel'] += 1
+        return self.decrypt(ciphertext)
     def encrypt_pathlabel(self, label):
         if not label:
             # An empty path remains empty
             return label
-        return self.pathmarker+b64encode(self.encrypt(label))
+        # Stats/Cache
+        if label in self.encrypt_cache:
+            self._process_stats['hit_encrypt_pathlabel'] += 1
+            ciphertext = self.encrypt_cache[label]
+        else:
+            self._process_stats['miss_encrypt_pathlabel'] += 1
+            ciphertext = self.encrypt(label)
+        return self.pathmarker+b64encode(ciphertext)
+
     def encrypt_query(self, query):
         if not query:
             return b''
-        return self.queryparam+b64encode(self.encrypt(query))
 
+        if query in self.encrypt_cache:
+            self._process_stats['hit_encrypt_query'] += 1
+            ciphertext = self.encrypt_cache[query]
+        else:
+            self._process_stats['miss_encrypt_query'] += 1
+            ciphertext = self.encrypt(query)
+
+        return self.queryparam+b64encode(ciphertext)
     def decrypt_query(self, query):
-        return self.decrypt(b64decode(query))
+        ciphertext = b64decode(query)
+        if ciphertext in self.decrypt_cache:
+            self._process_stats['hit_decrypt_query'] += 1
+            return self.decrypt_cache[ciphertext]
+        self._process_stats['miss_decrypt_query'] += 1
+        return self.decrypt(ciphertext)
 
     def encrypt_path(self, path):
         labels = path.split('/')
@@ -113,10 +179,7 @@ class SBNMiddleware(object):
                     new_path.append(label)
 
             environ['PATH_INFO'] = '/'.join(new_path)
-            self.logger.debug('Decrypted path %s' % (path))
             environ['SBN_ENABLED'] = ''
-        else:
-            self.logger.debug('Received clear path %s' % (environ['PATH_INFO']))
 
         # Query String
         if environ['QUERY_STRING'].startswith(self.queryparam.decode('utf8')):
@@ -125,6 +188,7 @@ class SBNMiddleware(object):
             environ['QUERY_STRING'] = self.decrypt_query(query[len(self.queryparam):]).decode('utf8')
 
     def __call__(self, environ, start_response):
+        self.reset_process_stats()
         try:
             err = self.process_req(environ)
             if err:
@@ -150,7 +214,9 @@ class SBNMiddleware(object):
         """SBN wrapper around flask.url_for """
         values['_external'] = True
         url = flask_url_for(endpoint, **values)
+        return self.encode_url(url)
 
+    def encode_url(self, url):
         # FIXME: from the python docs this would urlp[4] but it is not
         urlp = list(urlsplit(url))
         urlp[3] = self.encrypt_query(urlp[3].encode('utf8')).decode('utf8')
@@ -162,6 +228,7 @@ class SBNMiddleware(object):
         else:
             urlp[1] = self.encrypt_host(urlp[1].encode('utf8')).decode('utf8').lower()
 
+        urlp[0] = 'http'
         url = urlunsplit(urlp)
         return url
 

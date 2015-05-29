@@ -1,6 +1,22 @@
 {% extends "base.html" %}
 {% block content %}
+
 	<p>In a nutshell, press the button to start an SBN, you will be redirected to the new URL.</p>
-	<a class="btn btn-success" type="submit" href="{{url_for('.start')}}">Start Session</a> {#or
-	<a class="btn btn-default" type="submit" href="{{url_for('start_path')}}">Start Session(Path Only)</a>#}
+	<a class="btn btn-success" type="submit" href="{{url_for('.start')}}">Start Session</a> 
+
+	<h2>Proxy mode</h2>
+
+	<p>Insert a website URL in the form, to see a version using SBN urls. </p>
+
+	<form method="GET" action="{{url_for('.proxystart')}}">
+	<input name="url" type="text"/>
+	<input type="submit" value="View" class="btn btn-success"/>
+	</form>
+
+	<p>This is meant for testing and instrumentation. It behaves as a proxy between you and another website. It IS slower, since it rewrites all requests in runtime. We use it to gather data sets and for demonstration purposes. In some cases websites will not work e.g.</p>
+	<ul>
+		<li>link rewrites may break the same origin policy for non obvious cases</li>
+		<li>the website uses javascript to retrieve content</li>
+		<li>We don't rewrite https</li>
+	</ul>
 {% endblock %}
