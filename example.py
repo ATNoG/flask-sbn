@@ -62,14 +62,7 @@ def proxy_repl(link):
     if url.netloc.endswith(urlsplit(request.url).netloc):
         return SBN.encode_url(link)
 
-    # Some special rules for well known cases
-    #if 'nytimes.com' in request.url and url.netloc.endswith('nyt.com'):
-    #    return SBN.encode_url(link)
-    #if 'yahoo.com' in request.url and url.netloc.endswith('.yimg.com'):
-    #    return SBN.encode_url(link)
-
     return SBN.encode_url(link)
-    #return link
 
 @app.route('/<path:p>')
 def proxy(p):
@@ -79,21 +72,18 @@ def proxy(p):
     """
     if 'SBN_ENABLED' in request.environ:
         start = time.time()
-        req = requests.get(request.url, stream=True)
+
+        new_headers = {k:v for k,v in request.headers.items() if k in ('User-Agent', 'Connection', 'Dnt', 'Accept-Encoding', 'Accept-Language', 'Accept', 'Cookie')}
+        req = requests.get(request.url, stream=True, headers=new_headers)
         if req.headers['content-type'].startswith('text/html'):
             doc = html.fromstring(req.text, base_url=request.url)
-            doc.rewrite_links(proxy_repl)
+            doc.rewrite_links(proxy_repl, base_href=request.url)
             data = html.tostring(doc)
-            # FIXME: doctype serialization bug in lxml
-            doctype = ''
-            #if req.text.startswith('<!'):
-            #    idx = req.text.find('>')
-            #    if idx != -1 and len(req.text)>idx:
-            #        doctype = req.text[:idx+1]
-            resp =  Response(doctype.encode('ascii') + data, content_type='text/html')
+            # TODO: doctype serialization bug in lxml
+            resp =  Response(data, content_type=req.headers['content-type'])
         else:
-            resp = Response(stream_with_context(req.iter_content()), content_type = req.headers['content-type'])
-        SBNLOG.info('{:s} {}'.format(request.url, SBN.stats() ))
+            resp = Response(stream_with_context(req.iter_content()), content_type=req.headers['content-type'])
+        SBNLOG.info('{:s}/{:s} as {:s} {}'.format(request.environ.get('SBN_HTTP_HOST', ''), request.environ.get('SBN_PATH_INFO', ''), request.url, SBN.stats() ))
         return resp
     else:
         return root()
@@ -104,5 +94,5 @@ if __name__ == '__main__':
     fh.setLevel(logging.INFO)
     SBNLOG.addHandler(fh)
 
-    app.run(debug=False, host='0.0.0.0')
+    app.run(debug=True, host='0.0.0.0')
 

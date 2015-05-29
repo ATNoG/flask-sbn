@@ -156,7 +156,8 @@ class SBNMiddleware(object):
 
     def process_req(self, environ):
         # Host: this implementation works with host suffixes
-        host = environ['HTTP_HOST']
+        #host = environ['HTTP_HOST']
+        host = environ['HTTP_X_HOST_FIX']
         if self.domainsuffix and host.endswith(self.domainsuffix):
             environ['SBN_HTTP_HOST'] = environ['HTTP_HOST']
             environ['SBN_ENABLED'] = ''
@@ -183,6 +184,7 @@ class SBNMiddleware(object):
 
         # Query String
         if environ['QUERY_STRING'].startswith(self.queryparam.decode('utf8')):
+            environ['SBN_ENABLED'] = ''
             query = environ['QUERY_STRING']
             environ['SBN_QUERY_STRING'] = query
             environ['QUERY_STRING'] = self.decrypt_query(query[len(self.queryparam):]).decode('utf8')
@@ -223,10 +225,10 @@ class SBNMiddleware(object):
         # FIXME: path params
         urlp[2] = self.encrypt_path(urlp[2]).decode('utf8')
         # TODO: this will break netloc w/username or password?
-        if 'SBN_HTTP_HOST' in request.environ:
-            urlp[1] = request.environ['SBN_HTTP_HOST']
-        else:
-            urlp[1] = self.encrypt_host(urlp[1].encode('utf8')).decode('utf8').lower()
+#        if 'SBN_HTTP_HOST' in request.environ and urlp[1] == request.environ['SBN_HTTP_HOST']:
+#            urlp[1] = request.environ['SBN_HTTP_HOST']
+#        else:
+        urlp[1] = self.encrypt_host(urlp[1].encode('utf8')).decode('utf8').lower()
 
         urlp[0] = 'http'
         url = urlunsplit(urlp)
