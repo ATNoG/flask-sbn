@@ -78,9 +78,12 @@ class SBNMiddleware(object):
         return ciphertext
 
     def encrypt_host(self, host):
+        # TODO: use nonce from session .e.g
+        #extra = uuid.uuid4().bytes
+        #plain = extra+host
+        print(host)
+        plain = b'0'*16 + host
 
-        extra = uuid.uuid4().bytes
-        plain = extra+host
         # Stats/cache
         if plain in self.encrypt_cache:
             self._process_stats['hit_encrypt_host'] += 1
