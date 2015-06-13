@@ -41,6 +41,7 @@ class SBNMiddleware(object):
         self.pathmarker = b'@'
         self.queryparam = b'sbnq='
         self.domainsuffix=domainsuffix
+        self.cache_req_only = False
 
         self.decrypt_cache = {}
         self.encrypt_cache = {}
@@ -158,6 +159,11 @@ class SBNMiddleware(object):
         return b'/'.join([self.encrypt_pathlabel(label.encode('utf8')) for label in labels])
 
     def process_req(self, environ):
+        # Flush caches
+        if self.cache_req_only:
+            self.decrypt_cache = {}
+            self.encrypt_cache = {}
+
         # Host: this implementation works with host suffixes
         #host = environ['HTTP_HOST']
         host = environ['HTTP_X_HOST_FIX']
