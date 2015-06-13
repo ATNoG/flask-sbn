@@ -16,6 +16,8 @@ key = b">\xed\x19\xa7Q\xe5\xa1\x00ZF\xe7X4(m\xb7\x92(\x01\x90\xb1\x16\x9b\x02\xb
 SBN = SBNMiddleware(app, key, app.logger, domainsuffix='.sbndomain.tk')
 SBNLOG = logging.getLogger('SBN')
 
+PROXY_REWRITE_ALL = False
+
 url_for = SBN.url_for
 
 @app.route('/data')
@@ -57,14 +59,23 @@ def proxystart():
     SBNLOG.info('--- %s' % url)
     return redirect(SBN.encode_url(url_p.geturl()))
 
+G_LINK_REWRITE_COUNT = 0
+G_LINK_REWRITE_COUNT_SOP = 0
 from lxml import html
 from urllib.parse import urlsplit
 def proxy_repl(link):
     url = urlsplit(link)
+
+    global G_LINK_REWRITE_COUNT
+    G_LINK_REWRITE_COUNT += 1
     if url.netloc.endswith(urlsplit(request.url).netloc):
+        global G_LINK_REWRITE_COUNT_SOP
+        G_LINK_REWRITE_COUNT_SOP += 1
         return SBN.encode_url(link)
 
-    return SBN.encode_url(link)
+    if PROXY_REWRITE_ALL:
+        return SBN.encode_url(link)
+    return link
 
 @app.route('/<path:p>')
 def proxy(p):
@@ -72,6 +83,10 @@ def proxy(p):
     A rewrite proxy, it is not very efficient but it is useful for demonstration
     and gathering data sets for measurements
     """
+    global G_LINK_REWRITE_COUNT
+    global G_LINK_REWRITE_COUNT_SOP
+    G_LINK_REWRITE_COUNT = 0
+    G_LINK_REWRITE_COUNT_SOP = 0
     if 'SBN_ENABLED' in request.environ:
         start = time.time()
 
@@ -88,6 +103,8 @@ def proxy(p):
             resp = Response(stream_with_context(req.iter_content()), content_type=req.headers['content-type'])
         info = SBN.stats()
         info['rewrite'] = rewrite
+        info['rewrite_count'] = G_LINK_REWRITE_COUNT
+        info['rewrite_count_sop'] = G_LINK_REWRITE_COUNT_SOP
         SBNLOG.info(json.dumps(info))
         return resp
     else:
