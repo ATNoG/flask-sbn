@@ -11,7 +11,6 @@ import uuid
 import binascii
 
 #TODO: Rewrite Referer
-# TODO: caching
 
 def chunks(l, chunksize):
     result = []
@@ -42,6 +41,7 @@ class SBNMiddleware(object):
         self.queryparam = b'sbnq='
         self.domainsuffix=domainsuffix
         self.cache_req_only = False
+        self.collapse_paths = True
 
         self.decrypt_cache = {}
         self.encrypt_cache = {}
@@ -82,7 +82,6 @@ class SBNMiddleware(object):
         # TODO: use nonce from session .e.g
         #extra = uuid.uuid4().bytes
         #plain = extra+host
-        print(host)
         plain = b'0'*16 + host
 
         # Stats/cache
@@ -155,8 +154,23 @@ class SBNMiddleware(object):
         return self.decrypt(ciphertext)
 
     def encrypt_path(self, path):
-        labels = path.split('/')
-        return b'/'.join([self.encrypt_pathlabel(label.encode('utf8')) for label in labels])
+        if self.collapse_paths:
+            return self.encrypt_pathlabel(path.encode('utf8'))
+        else:
+            labels = path.split('/')
+            return b'/'.join([self.encrypt_pathlabel(label.encode('utf8')) for label in labels])
+
+    def decrypt_path(self, path):
+        path = path.split('/')
+        new_path = []
+        for label in path:
+            if label.startswith('@'):
+                newlabel = self.decrypt_pathlabel(label[1:].encode('utf8'))
+                new_path.append(newlabel.decode('utf8'))
+            else:
+                new_path.append(label)
+
+        return '/'.join(new_path)
 
     def process_req(self, environ):
         # Flush caches
@@ -179,16 +193,7 @@ class SBNMiddleware(object):
         # Path
         if '/'+self.pathmarker.decode('utf8') in environ['PATH_INFO']:
             environ['SBN_PATH_INFO'] = environ['PATH_INFO']
-            path = environ['PATH_INFO'].split('/')
-            new_path = []
-            for label in path:
-                if label.startswith('@'):
-                    newlabel = self.decrypt_pathlabel(label[1:].encode('utf8'))
-                    new_path.append(newlabel.decode('utf8'))
-                else:
-                    new_path.append(label)
-
-            environ['PATH_INFO'] = '/'.join(new_path)
+            environ['PATH_INFO'] = self.decrypt_path(environ['PATH_INFO'])
             environ['SBN_ENABLED'] = ''
 
         # Query String
