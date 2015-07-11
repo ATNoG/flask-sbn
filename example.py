@@ -64,11 +64,12 @@ G_LINK_REWRITE_COUNT_SOP = 0
 from lxml import html
 from urllib.parse import urlsplit
 def proxy_repl(link):
+    req_url = urlsplit(request.url)
     url = urlsplit(link)
 
     global G_LINK_REWRITE_COUNT
     G_LINK_REWRITE_COUNT += 1
-    if url.netloc.endswith(urlsplit(request.url).netloc):
+    if url.netloc == req_url.netloc or url.netloc.endswith('.'+req_url.netloc):
         global G_LINK_REWRITE_COUNT_SOP
         G_LINK_REWRITE_COUNT_SOP += 1
         return SBN.encode_url(link)
@@ -105,6 +106,7 @@ def proxy(p):
         info['rewrite'] = rewrite
         info['rewrite_count'] = G_LINK_REWRITE_COUNT
         info['rewrite_count_sop'] = G_LINK_REWRITE_COUNT_SOP
+        SBNLOG.info('# %s %s' % (request.environ.get('SBN_HTTP_HOST', ''), request.environ.get('SBN_PATH_INFO', '')))
         SBNLOG.info(json.dumps(info))
         return resp
     else:
